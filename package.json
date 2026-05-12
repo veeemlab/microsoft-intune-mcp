@@ -1,6 +1,6 @@
 {
   "name": "@veeemlab/microsoft-intune-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Microsoft Intune MCP server. Microsoft Graph access for managed devices, compliance, configuration, apps, autopilot, scripts and audit — including write operations (sync, rename, retire, wipe, delete, bulk-delete). Multi-tenant MSP support, Copilot Studio compatible flat schemas.",
   "type": "module",
   "main": "dist/index.js",
@@ -58,11 +58,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vmorgunov/microsoft-intune-mcp.git"
+    "url": "git+https://github.com/veeemlab/microsoft-intune-mcp.git"
   },
-  "homepage": "https://github.com/vmorgunov/microsoft-intune-mcp#readme",
+  "homepage": "https://github.com/veeemlab/microsoft-intune-mcp#readme",
   "bugs": {
-    "url": "https://github.com/vmorgunov/microsoft-intune-mcp/issues"
+    "url": "https://github.com/veeemlab/microsoft-intune-mcp/issues"
   },
   "author": "Vitalii Morgunov",
   "license": "MIT",

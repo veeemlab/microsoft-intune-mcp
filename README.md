@@ -1,6 +1,6 @@
 # Microsoft Intune MCP Server
 
-[![Release](https://github.com/vmorgunov/microsoft-intune-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/vmorgunov/microsoft-intune-mcp/actions/workflows/release.yml)
+[![Release](https://github.com/veeemlab/microsoft-intune-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/veeemlab/microsoft-intune-mcp/actions/workflows/release.yml)
 [![npm version](https://img.shields.io/npm/v/@veeemlab/microsoft-intune-mcp?color=blue&label=npm)](https://www.npmjs.com/package/@veeemlab/microsoft-intune-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@veeemlab/microsoft-intune-mcp?color=blue)](https://www.npmjs.com/package/@veeemlab/microsoft-intune-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -53,7 +53,7 @@ npx -y @veeemlab/microsoft-intune-mcp
 ### 2. Run from GitHub (bleeding edge)
 
 ```bash
-npx -y github:vmorgunov/microsoft-intune-mcp
+npx -y github:veeemlab/microsoft-intune-mcp
 ```
 
 ### 3. Install globally
@@ -276,7 +276,7 @@ Every tool accepts an optional `client` parameter (see [Multi-tenant](#multi-ten
 ## Local development
 
 ```bash
-git clone https://github.com/vmorgunov/microsoft-intune-mcp.git
+git clone https://github.com/veeemlab/microsoft-intune-mcp.git
 cd microsoft-intune-mcp
 npm install
 npm run build
