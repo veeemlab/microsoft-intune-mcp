@@ -1,6 +1,6 @@
 {
   "name": "@veeemlab/microsoft-intune-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Microsoft Intune MCP server. Microsoft Graph access for managed devices, compliance, configuration, apps, autopilot, scripts and audit — including write operations (sync, rename, retire, wipe, delete, bulk-delete). Multi-tenant MSP support, Copilot Studio compatible flat schemas.",
   "type": "module",
   "main": "dist/index.js",

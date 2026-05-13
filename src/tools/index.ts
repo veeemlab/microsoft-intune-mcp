@@ -1,4 +1,20 @@
 import type { ToolDefinition } from '../types.js';
+
+export type IntuneMode = 'read' | 'full';
+
+export const INTUNE_MODES: readonly IntuneMode[] = ['read', 'full'] as const;
+
+export function parseMode(raw: string | undefined): IntuneMode {
+  const value = (raw ?? 'read').toLowerCase();
+  if (value === 'read' || value === 'full') return value;
+  throw new Error(`Invalid INTUNE_MODE='${raw}'. Expected one of: ${INTUNE_MODES.join(', ')}.`);
+}
+
+export function filterToolsByMode(tools: ToolDefinition[], mode: IntuneMode): ToolDefinition[] {
+  if (mode === 'full') return tools;
+  return tools.filter((t) => t.description.trimStart().startsWith('[read]'));
+}
+
 import { clientTools } from './clients.js';
 import { deviceTools } from './devices.js';
 import { deviceActionTools } from './deviceActions.js';

@@ -109,8 +109,41 @@ npx @modelcontextprotocol/inspector npx -y @veeemlab/microsoft-intune-mcp
 | `GRAPH_BASE_URL`            | No                  | `https://graph.microsoft.com`       | Graph endpoint. Override for sovereign clouds.                               |
 | `GRAPH_API_VERSION`         | No                  | `v1.0`                              | Set to `beta` for preview endpoints.                                         |
 | `INTUNE_TRANSPORT`          | No                  | `stdio`                             | `stdio` or `http`.                                                           |
+| `INTUNE_MODE`               | No                  | `read`                              | `read` (read-only tools only) or `full` (includes writes & destructive ops). |
 | `PORT`                      | No                  | `3000`                              | Port for the HTTP transport.                                                 |
 | `INTUNE_MAX_RESPONSE_BYTES` | No                  | `200000`                            | Hard cap before a tool response is truncated with a hint.                    |
+
+## Access mode (`INTUNE_MODE`)
+
+Controls which tools the server registers. Defaults to `read` so an AI agent
+cannot accidentally delete, wipe, or retire a device unless you explicitly opt in.
+
+| Mode   | Tools registered                                                                                                               | When to use                                        |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `read` | Only `[read]`-tagged tools (list/get queries).                                                                                 | Default. Safe for AI agents, dashboards, audits.   |
+| `full` | All tools, including `[write]`, `[write/reversible]` (reboot/lock) and `[write/destructive]` (retire/wipe/delete/bulk-delete). | Only when the operator must perform admin actions. |
+
+Set it in your MCP client config alongside the other env vars:
+
+```jsonc
+{
+  "mcpServers": {
+    "intune": {
+      "command": "npx",
+      "args": ["-y", "@veeemlab/microsoft-intune-mcp"],
+      "env": {
+        "AZURE_CLIENT_ID": "...",
+        "AZURE_CLIENT_SECRET": "...",
+        "AZURE_TENANT_ID": "...",
+        "INTUNE_MODE": "full",
+      },
+    },
+  },
+}
+```
+
+> **Breaking change in 0.3.0** — earlier versions registered all tools regardless of mode.
+> If you upgraded from 0.2.x and lost write/delete tools, set `INTUNE_MODE=full`.
 
 ## Multi-tenant (MSP scenario)
 

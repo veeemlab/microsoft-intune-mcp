@@ -1,12 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { allTools } from './tools/index.js';
+import { allTools, filterToolsByMode, type IntuneMode } from './tools/index.js';
 import { staticResources, resourceTemplates, handleResource } from './resources.js';
 import { errorResult } from './format.js';
 
 export interface BuildServerOptions {
   name?: string;
   version?: string;
+  mode?: IntuneMode;
 }
 
 // Flat string schemas (Copilot Studio compatible). All params are strings even
@@ -31,7 +32,9 @@ export function buildServer(opts: BuildServerOptions = {}): McpServer {
     version: opts.version ?? '0.1.0',
   });
 
-  for (const tool of allTools) {
+  const tools = filterToolsByMode(allTools, opts.mode ?? 'read');
+
+  for (const tool of tools) {
     server.tool(tool.name, tool.description, buildShape(tool), async (args) => {
       try {
         const stringArgs: Record<string, string> = {};
