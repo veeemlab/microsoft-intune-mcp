@@ -14,7 +14,7 @@ export const paginationTools: ToolDefinition[] = [
         nextLink: {
           type: 'string',
           description:
-            'Full @odata.nextLink URL returned by a prior list call. Must start with the Graph base URL.',
+            'Full @odata.nextLink URL returned by a prior list call. Must be an HTTPS Microsoft Graph URL.',
         },
         ...CLIENT_PROPERTY,
       },
@@ -23,17 +23,9 @@ export const paginationTools: ToolDefinition[] = [
     handler: async (args) => {
       const next = args.nextLink;
       if (!next) throw new Error('Missing required argument: nextLink');
-      // Defence in depth: refuse anything that isn't a Graph URL so the agent
-      // can't be tricked into using this tool for SSRF against arbitrary hosts.
-      if (
-        !/^https:\/\/(graph\.microsoft\.com|microsoftgraph\.chinacloudapi\.cn|graph\.microsoft\.us|dod-graph\.microsoft\.us)\//i.test(
-          next,
-        )
-      ) {
-        throw new Error('nextLink must be a Microsoft Graph URL.');
-      }
+      // getFromNextLink enforces the Graph host allowlist (SSRF guard).
       const api = getApiFor(args.client);
-      const result = await api.get(next);
+      const result = await api.getFromNextLink(next);
       return jsonResult(result);
     },
   },

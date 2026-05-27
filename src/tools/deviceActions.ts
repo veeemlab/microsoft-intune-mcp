@@ -2,7 +2,7 @@ import type { ToolDefinition, ToolResponse } from '../types.js';
 import { getApiFor } from '../graph-api.js';
 import { jsonResult } from '../format.js';
 import { CLIENT_PROPERTY } from '../query.js';
-import { requireArg } from './shared.js';
+import { CONFIRM_PROPERTY, requireArg, requireConfirm } from './shared.js';
 
 async function postAction(
   args: Record<string, string>,
@@ -100,18 +100,22 @@ export const deviceActionTools: ToolDefinition[] = [
   {
     name: 'retire-device',
     description:
-      "[write/destructive] Unenroll the device and remove company data + Intune policies. Personal data on BYOD stays. Irreversible without re-enrollment. Often the safer first step before 'wipe-device'.",
+      '[write/destructive] Unenroll the device and remove company data + Intune policies. Personal data on BYOD stays. Irreversible without re-enrollment. Requires confirm="RETIRE <deviceId>" — literal echo, including the device id.',
     inputSchema: {
       type: 'object',
-      properties: { ...deviceIdProperty, ...CLIENT_PROPERTY },
-      required: ['deviceId'],
+      properties: { ...deviceIdProperty, ...CONFIRM_PROPERTY, ...CLIENT_PROPERTY },
+      required: ['deviceId', 'confirm'],
     },
-    handler: (args) => postAction(args, 'retire'),
+    handler: (args) => {
+      const id = requireArg(args, 'deviceId');
+      requireConfirm(args, `RETIRE ${id}`, 'retire-device');
+      return postAction(args, 'retire');
+    },
   },
   {
     name: 'wipe-device',
     description:
-      '[write/destructive] Factory-reset the device. ALL data is erased. Optionally keep user data on Windows (Fresh Start semantics) and keep enrollment data. Irreversible.',
+      '[write/destructive] Factory-reset the device. ALL data is erased. Optionally keep user data on Windows (Fresh Start semantics) and keep enrollment data. Irreversible. Requires confirm="WIPE <deviceId>" — literal echo, including the device id.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -124,11 +128,14 @@ export const deviceActionTools: ToolDefinition[] = [
           type: 'string',
           description: 'Set "true" to keep user data (Windows Fresh Start). Default false.',
         },
+        ...CONFIRM_PROPERTY,
         ...CLIENT_PROPERTY,
       },
-      required: ['deviceId'],
+      required: ['deviceId', 'confirm'],
     },
     handler: (args) => {
+      const id = requireArg(args, 'deviceId');
+      requireConfirm(args, `WIPE ${id}`, 'wipe-device');
       const body: Record<string, boolean> = {};
       if (args.keepEnrollmentData) body.keepEnrollmentData = args.keepEnrollmentData === 'true';
       if (args.keepUserData) body.keepUserData = args.keepUserData === 'true';

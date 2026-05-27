@@ -10,6 +10,12 @@ const MAX_RETRIES = 3;
 const TOKEN_REFRESH_BUFFER_SECONDS = 300;
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
 
+// Allowlist of official Microsoft Graph hosts. Any absolute URL passed into
+// the Graph client must resolve to one of these — otherwise we'd hand the
+// Bearer token to a third party (SSRF / token exfiltration).
+const GRAPH_HOST_ALLOWLIST =
+  /^(graph\.microsoft\.com|graph\.microsoft\.us|dod-graph\.microsoft\.us|microsoftgraph\.chinacloudapi\.cn)$/i;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -115,8 +121,34 @@ export class GraphApi {
     return this.token.access_token;
   }
 
+  // Expose configured cloud so callers (e.g. @odata.id construction) don't
+  // hardcode graph.microsoft.com and break in sovereign clouds.
+  get baseUrl(): string {
+    return this.graphBaseUrl;
+  }
+
+  get version(): string {
+    return this.apiVersion;
+  }
+
   async get(path: string): Promise<unknown> {
     return this.apiCall('GET', path);
+  }
+
+  // Follow an absolute @odata.nextLink. Refuses anything that isn't an HTTPS
+  // Graph URL so a malformed nextLink can't redirect the token to a third
+  // party host.
+  async getFromNextLink(absoluteUrl: string): Promise<unknown> {
+    let parsed: URL;
+    try {
+      parsed = new URL(absoluteUrl);
+    } catch {
+      throw new Error('nextLink is not a valid URL.');
+    }
+    if (parsed.protocol !== 'https:' || !GRAPH_HOST_ALLOWLIST.test(parsed.host)) {
+      throw new Error('nextLink must be an HTTPS Microsoft Graph URL.');
+    }
+    return this.apiCall('GET', absoluteUrl);
   }
 
   async post(path: string, body?: unknown): Promise<unknown> {
@@ -165,7 +197,13 @@ export class GraphApi {
         continue;
       }
 
-      if (resp.status === 429 && attempt < MAX_RETRIES) {
+      // 429: Graph said it didn't act, but for write methods we still can't
+      // safely auto-retry. Graph occasionally returns 429 after the side
+      // effect was already queued (e.g. retire/wipe accepted then throttled),
+      // and a blind retry would issue it twice. Only safe methods get
+      // auto-retry; writes surface the 429 with the Retry-After hint so the
+      // caller can decide.
+      if (resp.status === 429 && isSafeMethod && attempt < MAX_RETRIES) {
         const retryAfter = resp.headers.get('Retry-After');
         const delayMs = retryAfter
           ? Math.max(0, parseInt(retryAfter, 10) * 1000)
@@ -188,7 +226,22 @@ export class GraphApi {
   }
 
   private buildUrl(pathOrUrl: string): string {
-    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+    // Absolute URLs allowed only if they target an allowlisted Graph host.
+    // Prevents a caller from accidentally pivoting the Bearer token to an
+    // arbitrary host. nextLink follows go through getFromNextLink() which
+    // performs the same check before getting here.
+    if (/^https?:\/\//i.test(pathOrUrl)) {
+      let parsed: URL;
+      try {
+        parsed = new URL(pathOrUrl);
+      } catch {
+        throw new Error('Invalid URL passed to Graph client.');
+      }
+      if (parsed.protocol !== 'https:' || !GRAPH_HOST_ALLOWLIST.test(parsed.host)) {
+        throw new Error(`Refusing to send Graph token to non-Graph host: ${parsed.host}`);
+      }
+      return pathOrUrl;
+    }
     const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
     return `${this.graphBaseUrl}/${this.apiVersion}${path}`;
   }

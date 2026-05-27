@@ -107,7 +107,7 @@ describe('paginationTools.fetch-next-page', () => {
     const tool = paginationTools.find((t) => t.name === 'fetch-next-page')!;
     // fetch-next-page is async — rejection is delivered via Promise.
     await expect(tool.handler({ nextLink: 'https://evil.example.com/foo' })).rejects.toThrow(
-      /must be a Microsoft Graph URL/,
+      /must be an HTTPS Microsoft Graph URL/,
     );
   });
 

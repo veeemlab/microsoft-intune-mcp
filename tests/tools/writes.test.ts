@@ -80,11 +80,33 @@ describe('device action POSTs', () => {
     ]);
     const { deviceActionTools } = await freshTools();
     const tool = deviceActionTools.find((t) => t.name === 'wipe-device')!;
-    await tool.handler({ deviceId: 'dev-1', keepUserData: 'true', keepEnrollmentData: 'false' });
+    await tool.handler({
+      deviceId: 'dev-1',
+      confirm: 'WIPE dev-1',
+      keepUserData: 'true',
+      keepEnrollmentData: 'false',
+    });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       keepEnrollmentData: false,
       keepUserData: true,
     });
+  });
+
+  it('wipe-device refuses without confirm matching device id', async () => {
+    mockFetchSequence([{ status: 200, body: { access_token: 'tok', expires_in: 3600 } }]);
+    const { deviceActionTools } = await freshTools();
+    const tool = deviceActionTools.find((t) => t.name === 'wipe-device')!;
+    expect(() => tool.handler({ deviceId: 'dev-1' })).toThrow(/requires confirm="WIPE dev-1"/);
+    expect(() => tool.handler({ deviceId: 'dev-1', confirm: 'WIPE dev-2' })).toThrow(
+      /confirm mismatch/,
+    );
+  });
+
+  it('retire-device requires literal RETIRE <id> echo', async () => {
+    mockFetchSequence([{ status: 200, body: { access_token: 'tok', expires_in: 3600 } }]);
+    const { deviceActionTools } = await freshTools();
+    const tool = deviceActionTools.find((t) => t.name === 'retire-device')!;
+    expect(() => tool.handler({ deviceId: 'dev-9' })).toThrow(/requires confirm="RETIRE dev-9"/);
   });
 
   it('send-custom-notification requires both title and body', async () => {
@@ -105,11 +127,21 @@ describe('delete-managed-device', () => {
     ]);
     const { deviceManagementTools } = await freshTools();
     const tool = deviceManagementTools.find((t) => t.name === 'delete-managed-device')!;
-    await tool.handler({ deviceId: 'dev-x' });
+    await tool.handler({ deviceId: 'dev-x', confirm: 'DELETE dev-x' });
     expect(fetchMock.mock.calls[1][0]).toBe(
       'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices/dev-x',
     );
     expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+  });
+
+  it('refuses without confirm', async () => {
+    mockFetchSequence([{ status: 200, body: { access_token: 'tok', expires_in: 3600 } }]);
+    const { deviceManagementTools } = await freshTools();
+    const tool = deviceManagementTools.find((t) => t.name === 'delete-managed-device')!;
+    // handler is async — throw becomes rejected promise.
+    await expect(tool.handler({ deviceId: 'dev-x' })).rejects.toThrow(
+      /requires confirm="DELETE dev-x"/,
+    );
   });
 });
 
@@ -123,7 +155,7 @@ describe('bulk-delete-managed-devices', () => {
     ]);
     const { deviceManagementTools } = await freshTools();
     const tool = deviceManagementTools.find((t) => t.name === 'bulk-delete-managed-devices')!;
-    const resp = await tool.handler({ deviceIds: 'dev-a, dev-b, dev-c' });
+    const resp = await tool.handler({ deviceIds: 'dev-a, dev-b, dev-c', confirm: 'DELETE 3' });
     const parsed = JSON.parse(resp.content[0].text);
     expect(parsed.total).toBe(3);
     expect(parsed.succeeded).toBe(2);

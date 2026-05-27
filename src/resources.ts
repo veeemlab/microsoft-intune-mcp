@@ -1,4 +1,5 @@
 import { getApi } from './graph-api.js';
+import { formatJson } from './format.js';
 
 export interface ResourceDefinition {
   uri: string;
@@ -68,59 +69,54 @@ export const resourceTemplates: ResourceTemplateDefinition[] = [
   },
 ];
 
+// formatJson enforces the INTUNE_MAX_RESPONSE_BYTES cap on every resource so
+// a tenant-wide list can't blow the agent's context window or leak the entire
+// device inventory in one read.
 export async function handleResource(uri: string): Promise<string> {
   const api = getApi();
 
   if (uri === 'intune://managed-devices') {
-    return JSON.stringify(await api.get('/deviceManagement/managedDevices'), null, 2);
+    return formatJson(await api.get('/deviceManagement/managedDevices'));
   }
   if (uri === 'intune://compliance-policies') {
-    return JSON.stringify(await api.get('/deviceManagement/deviceCompliancePolicies'), null, 2);
+    return formatJson(await api.get('/deviceManagement/deviceCompliancePolicies'));
   }
   if (uri === 'intune://configuration-policies') {
-    return JSON.stringify(await api.get('/deviceManagement/configurationPolicies'), null, 2);
+    return formatJson(await api.get('/deviceManagement/configurationPolicies'));
   }
   if (uri === 'intune://mobile-apps') {
-    return JSON.stringify(await api.get('/deviceAppManagement/mobileApps'), null, 2);
+    return formatJson(await api.get('/deviceAppManagement/mobileApps'));
   }
 
   const deviceMatch = uri.match(/^intune:\/\/managed-devices\/([^/]+)$/);
   if (deviceMatch) {
-    return JSON.stringify(
+    return formatJson(
       await api.get(`/deviceManagement/managedDevices/${encodeURIComponent(deviceMatch[1])}`),
-      null,
-      2,
     );
   }
 
   const compMatch = uri.match(/^intune:\/\/compliance-policies\/([^/]+)$/);
   if (compMatch) {
-    return JSON.stringify(
+    return formatJson(
       await api.get(
         `/deviceManagement/deviceCompliancePolicies/${encodeURIComponent(compMatch[1])}`,
       ),
-      null,
-      2,
     );
   }
 
   const configMatch = uri.match(/^intune:\/\/configuration-policies\/([^/]+)$/);
   if (configMatch) {
-    return JSON.stringify(
+    return formatJson(
       await api.get(
         `/deviceManagement/configurationPolicies/${encodeURIComponent(configMatch[1])}`,
       ),
-      null,
-      2,
     );
   }
 
   const appMatch = uri.match(/^intune:\/\/mobile-apps\/([^/]+)$/);
   if (appMatch) {
-    return JSON.stringify(
+    return formatJson(
       await api.get(`/deviceAppManagement/mobileApps/${encodeURIComponent(appMatch[1])}`),
-      null,
-      2,
     );
   }
 

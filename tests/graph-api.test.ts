@@ -162,7 +162,7 @@ describe('GraphApi.apiCall — URL construction', () => {
     );
   });
 
-  it('passes a fully-qualified URL straight through (nextLink case)', async () => {
+  it('passes a fully-qualified URL straight through when host is Graph (nextLink case)', async () => {
     const next = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?$skiptoken=ABC';
     const fetchMock = mockFetchSequence([
       { status: 200, body: { access_token: 'tok', expires_in: 3600 } },
@@ -174,6 +174,27 @@ describe('GraphApi.apiCall — URL construction', () => {
     await api.get(next);
 
     expect(fetchMock.mock.calls[1][0]).toBe(next);
+  });
+
+  it('refuses absolute URL pointing at a non-Graph host (SSRF guard)', async () => {
+    mockFetchSequence([{ status: 200, body: { access_token: 'tok', expires_in: 3600 } }]);
+    const { GraphApi } = await importFreshApi();
+    const api = new GraphApi();
+    await expect(api.get('https://evil.example.com/something')).rejects.toThrow(
+      /Refusing to send Graph token to non-Graph host/,
+    );
+  });
+
+  it('getFromNextLink refuses non-Graph hosts and non-HTTPS', async () => {
+    mockFetchSequence([{ status: 200, body: { access_token: 'tok', expires_in: 3600 } }]);
+    const { GraphApi } = await importFreshApi();
+    const api = new GraphApi();
+    await expect(api.getFromNextLink('https://evil.example.com/x')).rejects.toThrow(
+      /HTTPS Microsoft Graph URL/,
+    );
+    await expect(api.getFromNextLink('http://graph.microsoft.com/x')).rejects.toThrow(
+      /HTTPS Microsoft Graph URL/,
+    );
   });
 });
 
@@ -211,6 +232,21 @@ describe('GraphApi.apiCall — retries', () => {
     await expect(api.get('/deviceManagement/managedDevices')).rejects.toThrow(
       /Graph API error \(401/,
     );
+  });
+
+  it('does NOT auto-retry 429 on write methods (avoids duplicated side effects)', async () => {
+    const fetchMock = mockFetchSequence([
+      { status: 200, body: { access_token: 'tok', expires_in: 3600 } },
+      { status: 429, body: 'throttled', headers: { 'Retry-After': '1' } },
+    ]);
+
+    const { GraphApi } = await importFreshApi();
+    const api = new GraphApi();
+    await expect(api.apiCall('DELETE', '/deviceManagement/managedDevices/abc')).rejects.toThrow(
+      /Graph API error \(429/,
+    );
+    // Auth call + the single DELETE attempt. No retry.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('honours Retry-After on 429 then succeeds', async () => {

@@ -306,6 +306,49 @@ Every tool accepts an optional `client` parameter (see [Multi-tenant](#multi-ten
 | `intune://mobile-apps`                       | All mobile apps.                  |
 | `intune://mobile-apps/{appId}`               | A single mobile app.              |
 
+## Security model
+
+The server holds a long-lived Graph application secret. Treat it like a domain-admin credential. The defences below stack so no single failure exposes everything.
+
+### Stdio (default)
+
+Stdio is the recommended transport. The MCP client (Claude Desktop, MetaMCP, Copilot Studio) shows every tool call to a human and waits for approval. No network port is opened.
+
+### HTTP transport
+
+Set `INTUNE_TRANSPORT=http` only if you understand the consequences.
+
+- `HOST` defaults to `127.0.0.1`. The server **refuses to start** on any other interface unless `INTUNE_HTTP_AUTH_TOKEN` is set.
+- When `INTUNE_HTTP_AUTH_TOKEN` is set, every request to `/mcp` must carry `Authorization: Bearer <token>`. Comparison is constant-time.
+- `/health` is unauthenticated by design (returns `{ ok: true, mode, tools: N }`); no Intune state leaks through it.
+- Anything on the same host can still reach `127.0.0.1`. Do not enable HTTP on a shared machine.
+- Recommended remote deployment: container with the server bound to loopback inside, plus a reverse proxy that terminates TLS and adds the bearer token. Or use mTLS at the proxy.
+
+### Destructive tool gate
+
+`retire-device`, `wipe-device`, `delete-managed-device` and `bulk-delete-managed-devices` require a `confirm` argument that literally echoes the action and the target id:
+
+- `retire-device` — `confirm="RETIRE <deviceId>"`
+- `wipe-device` — `confirm="WIPE <deviceId>"`
+- `delete-managed-device` — `confirm="DELETE <deviceId>"`
+- `bulk-delete-managed-devices` — `confirm="DELETE <N>"` where N is the count of ids you are submitting
+
+Forces the agent to quote the target verbatim, blocking prompt-injection that asks the agent to "delete that device we just listed" without surfacing the id, and giving the human reviewer the exact identifier to verify before approving.
+
+The `confirm` gate stacks with `INTUNE_MODE=read` (which hides write tools entirely): mode = perimeter, confirm = last-mile.
+
+### Idempotency on writes
+
+429 (throttled) on POST/PATCH/DELETE is **not** auto-retried — Graph occasionally returns 429 after the side effect was already queued, and a blind retry would issue it twice. The original 429 (with `Retry-After` hint) is surfaced to the caller. 5xx on writes is also not retried; only GET/HEAD.
+
+### SSRF / token exfiltration guard
+
+`fetch-next-page` and any path that takes an absolute URL into the Graph client checks the host against an allowlist of official Graph endpoints (`graph.microsoft.com`, `graph.microsoft.us`, `dod-graph.microsoft.us`, `microsoftgraph.chinacloudapi.cn`) and rejects everything else. A user-controlled URL cannot pivot the Bearer token to a third-party host.
+
+### Error scrubbing
+
+Bearer tokens, `client_secret`, and `access_token` JSON fields are redacted in error messages before any payload reaches the model.
+
 ## Local development
 
 ```bash
